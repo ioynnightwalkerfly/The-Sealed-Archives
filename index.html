@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Sealed Archives: Lord of the Mysteries</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts: Noto Sans Thai -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;600;700&family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Chosen Palette: Mystery Parchment -->
+    <!-- 
+        Background: #FDFBF7 (Antique White/Parchment)
+        Primary Text: #2D3748 (Dark Slate)
+        Accent Gold: #B45309 (Bronze/Gold)
+        Danger Red: #9B2C2C (Blood Red for High Risk)
+        Safe Green: #2F855A (Emerald for Grade 3)
+        Mystic Purple: #553C9A (For Beyonder characteristics)
+    -->
+
+    <!-- Application Structure Plan: 
+        1. Header: Immersive entry point, establishing the 'Archive' atmosphere.
+        2. System Overview (Dashboard): Quantitative analysis of the artifacts using Chart.js to show the balance between Grade distribution and Danger/Utility ratios. This helps users understand the macro-scale threat.
+        3. Classification Protocol: An interactive section explaining the 0-3 Grade system, crucial for understanding the context of the data.
+        4. The Vault (Main Interaction): A filterable grid of Artifact Cards. This allows nonlinear exploration of specific items.
+        5. Detail View (Modal): An overlay providing deep textual analysis of specific items (Description, Effects, Downsides) without cluttering the main view.
+        6. Footer: Thematic closing.
+    -->
+
+    <!-- Visualization & Content Choices:
+        1. Chart 1 (Donut): Distribution of Sealed Artifacts by Grade. Goal: Show rarity of Grade 0/1.
+        2. Chart 2 (Bar): Risk vs. Utility Rating for selected famous items. Goal: Compare trade-offs visually.
+        3. Grid System: Card-based layout for items. Goal: Quick scanning of Name, Grade, and Type.
+        4. Modal System: For detailed reading of "Effects" and "Curses". Goal: Progressive disclosure of information.
+        5. Interactions: Filtering by Grade (JS), Search (JS), Modal Open/Close (JS).
+        6. CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. Standard HTML/CSS/Canvas only.
+    -->
+
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Noto Sans Thai', sans-serif;
+            background-color: #FDFBF7;
+            color: #2D3748;
+        }
+        h1, h2, h3, .brand-font {
+            font-family: 'Cinzel', serif; /* English headers style */
+        }
+        .thai-header {
+            font-family: 'Noto Sans Thai', sans-serif;
+            font-weight: 700;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            height: 300px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #B45309; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #92400e; 
+        }
+        .artifact-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .artifact-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .grade-badge-0 { background-color: #742A2A; color: white; border: 1px solid #9B2C2C; } /* Grade 0: Extremely Dangerous */
+        .grade-badge-1 { background-color: #C05621; color: white; border: 1px solid #DD6B20; } /* Grade 1: Highly Dangerous */
+        .grade-badge-2 { background-color: #D69E2E; color: black; border: 1px solid #B7791F; } /* Grade 2: Dangerous */
+        .grade-badge-3 { background-color: #38A169; color: white; border: 1px solid #2F855A; } /* Grade 3: Mild */
+        
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="bg-gray-900 text-amber-50 shadow-lg sticky top-0 z-50 border-b-4 border-amber-700">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl font-bold brand-font tracking-wider text-amber-500">The Sealed Archives</span>
+                <span class="text-sm opacity-70 border-l border-gray-600 pl-3 hidden md:inline-block">หอจดหมายเหตุสมบัติปิดผนึก</span>
+            </div>
+            <div class="text-xs uppercase tracking-widest text-gray-400">
+                Security Clearance: <span class="text-amber-500 font-bold">Nighthawk Captain</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero / Intro -->
+    <header class="bg-white border-b border-gray-200">
+        <div class="container mx-auto px-4 py-12 text-center max-w-4xl">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4 thai-header">ฐานข้อมูลสมบัติวิเศษและวัตถุปิดผนึก</h1>
+            <p class="text-lg text-gray-600 leading-relaxed mb-6">
+                ยินดีต้อนรับสู่คลังข้อมูลลับสุดยอด ในโลกของ <em>Lord of the Mysteries</em> พลังวิเศษไม่ได้มาโดยไม่มีราคา 
+                สมบัติปิดผนึก (Sealed Artifacts) ทุกชิ้นมีชีวิต มีความกระหาย และมีคำสาป 
+                ข้อมูลในหน้านี้ถูกรวบรวมเพื่อวิเคราะห์ระดับความอันตรายและสรรพคุณของวัตถุเหล่านี้
+            </p>
+            <div class="inline-block bg-amber-100 text-amber-800 px-4 py-2 rounded-full text-sm font-semibold border border-amber-200">
+                ⚠ คำเตือน: ความรู้คือพิษร้าย จงระมัดระวังในการศึกษา
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="container mx-auto px-4 py-8 flex-grow">
+
+        <!-- Section 1: Dashboard / Stats -->
+        <!-- Context: Provides a high-level view of the artifacts database, distinguishing between sheer power and manageability. -->
+        <section class="mb-16">
+            <div class="flex flex-col md:flex-row items-center justify-between mb-6 border-b border-gray-300 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800 thai-header">วิเคราะห์ข้อมูลเชิงสถิติ (Statistical Overview)</h2>
+                    <p class="text-sm text-gray-500 mt-1">ภาพรวมการกระจายตัวของระดับความอันตรายในคลังข้อมูล</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Chart 1: Distribution -->
+                <div class="bg-white p-6 rounded-lg shadow-md border border-gray-100">
+                    <h3 class="text-lg font-semibold mb-4 text-center text-gray-700">สัดส่วนของสมบัติปิดผนึกตามระดับ (Grade Distribution)</h3>
+                    <div class="chart-container">
+                        <canvas id="gradeChart"></canvas>
+                    </div>
+                    <p class="text-xs text-center text-gray-400 mt-4">ข้อมูลอ้างอิงจากตัวอย่างในฐานข้อมูลปัจจุบัน</p>
+                </div>
+
+                <!-- Chart 2: Risk vs Utility -->
+                <div class="bg-white p-6 rounded-lg shadow-md border border-gray-100">
+                    <h3 class="text-lg font-semibold mb-4 text-center text-gray-700">ดัชนีความอันตรายเทียบกับประโยชน์ใช้สอย (Risk vs Utility)</h3>
+                    <div class="chart-container">
+                        <canvas id="riskChart"></canvas>
+                    </div>
+                    <p class="text-xs text-center text-gray-400 mt-4">วิเคราะห์จากผลกระทบด้านลบเทียบกับพลังทำลายล้าง</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Classification Guide -->
+        <!-- Context: Explains the mechanics of the Grade system (0-3) so users understand what the labels mean. -->
+        <section class="mb-16 bg-gray-50 rounded-xl p-8 border border-gray-200">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 thai-header text-center">ระบบการจัดระดับ (Classification System)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded shadow-sm border-t-4 border-red-800">
+                    <div class="text-red-800 font-bold text-xl mb-2">Grade 0</div>
+                    <h4 class="font-semibold text-gray-700 mb-2">อันตรายสูงสุด</h4>
+                    <p class="text-sm text-gray-600">ทรงพลังมหาศาล อันตรายถึงชีวิต อาจส่งผลกระทบระดับประเทศหรือทำลายล้างเมืองได้ ต้องปิดผนึกด้วยวิธีการขั้นสูงสุด</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow-sm border-t-4 border-orange-600">
+                    <div class="text-orange-600 font-bold text-xl mb-2">Grade 1</div>
+                    <h4 class="font-semibold text-gray-700 mb-2">อันตรายสูง</h4>
+                    <p class="text-sm text-gray-600">มีความสามารถที่แปลกประหลาดและรุนแรง สามารถใช้ได้อย่างจำกัด แต่มีความเสี่ยงสูงที่จะเกิดหายนะหากควบคุมไม่ดี</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow-sm border-t-4 border-yellow-600">
+                    <div class="text-yellow-600 font-bold text-xl mb-2">Grade 2</div>
+                    <h4 class="font-semibold text-gray-700 mb-2">อันตราย</h4>
+                    <p class="text-sm text-gray-600">มีผลข้างเคียงที่ชัดเจนแต่สามารถหลีกเลี่ยงหรือบรรเทาได้ มักใช้โดยหัวหน้าหน่วย Nighthawk หรือเทียบเท่า</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow-sm border-t-4 border-green-600">
+                    <div class="text-green-600 font-bold text-xl mb-2">Grade 3</div>
+                    <h4 class="font-semibold text-gray-700 mb-2">อันตรายต่ำ</h4>
+                    <p class="text-sm text-gray-600">สมบัติปิดผนึกที่มีผลเสียเล็กน้อย หรือวัตถุวิเศษทั่วไป สามารถใช้งานได้โดยเจ้าหน้าที่ทั่วไปในภารกิจปกติ</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: The Vault (Interactive Grid) -->
+        <!-- Context: The core interactive component. Allows users to browse and filter items to find specific details. -->
+        <section id="vault-section" class="scroll-mt-20">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-6">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900 brand-font">The Artifact Vault</h2>
+                    <p class="text-gray-600 mt-2">คลังข้อมูลวัตถุปิดผนึกที่ได้รับการยืนยันแล้ว</p>
+                </div>
+                
+                <!-- Filters -->
+                <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
+                    <button onclick="filterItems('all')" class="filter-btn active bg-gray-800 text-white px-4 py-2 rounded shadow hover:bg-gray-700 transition text-sm">ทั้งหมด (All)</button>
+                    <button onclick="filterItems(0)" class="filter-btn bg-red-100 text-red-800 px-4 py-2 rounded shadow hover:bg-red-200 transition text-sm">Grade 0</button>
+                    <button onclick="filterItems(1)" class="filter-btn bg-orange-100 text-orange-800 px-4 py-2 rounded shadow hover:bg-orange-200 transition text-sm">Grade 1</button>
+                    <button onclick="filterItems(2)" class="filter-btn bg-yellow-100 text-yellow-800 px-4 py-2 rounded shadow hover:bg-yellow-200 transition text-sm">Grade 2</button>
+                    <button onclick="filterItems(3)" class="filter-btn bg-green-100 text-green-800 px-4 py-2 rounded shadow hover:bg-green-200 transition text-sm">Grade 3 / Misc</button>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="mb-8">
+                <input type="text" id="searchInput" placeholder="ค้นหาชื่อวัตถุ หรือ ความสามารถ... (Search Artifacts)" 
+                    class="w-full md:w-1/3 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm transition">
+            </div>
+
+            <!-- Grid Container -->
+            <div id="artifact-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Items will be injected here by JS -->
+            </div>
+            
+            <div id="no-results" class="hidden text-center py-12 text-gray-500 italic">
+                ไม่พบข้อมูลที่ตรงกับการค้นหา...
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-12 border-t border-gray-800">
+        <div class="container mx-auto px-4 text-center">
+            <p class="mb-4 brand-font text-xl text-gray-300">Church of the Evernight Goddess</p>
+            <p class="text-sm opacity-60">
+                ข้อมูลในเอกสารนี้เป็นความลับระดับสูง การเผยแพร่โดยไม่ได้รับอนุญาตถือเป็นอาชญากรรมต่อศาสนจักร<br>
+                "The Lady of the Crimson Moon watches over us."
+            </p>
+            <div class="mt-8 text-xs text-gray-600">
+                Created for Fan Study & Reference | Lord of the Mysteries
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modal for Details -->
+    <div id="detail-modal" class="fixed inset-0 modal-overlay hidden z-[100] flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-[#FDFBF7] w-full max-w-2xl rounded-lg shadow-2xl transform scale-95 transition-transform duration-300 flex flex-col max-h-[90vh]" id="modal-content">
+            <!-- Modal Header -->
+            <div class="bg-gray-900 text-amber-50 px-6 py-4 rounded-t-lg flex justify-between items-center border-b-4 border-amber-600">
+                <div>
+                    <h3 id="modal-title" class="text-2xl font-bold brand-font">Title</h3>
+                    <span id="modal-grade" class="text-xs font-bold px-2 py-0.5 rounded mt-1 inline-block bg-gray-700">Grade</span>
+                </div>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white focus:outline-none text-2xl">&times;</button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto custom-scrollbar">
+                <div class="mb-6">
+                    <h4 class="text-sm uppercase tracking-wider text-gray-500 font-bold mb-2">ลักษณะภายนอก (Appearance)</h4>
+                    <p id="modal-appearance" class="text-gray-800 leading-relaxed italic border-l-4 border-gray-300 pl-4"></p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-green-50 p-4 rounded border border-green-100">
+                        <h4 class="text-green-800 font-bold mb-2 flex items-center">
+                            <span class="mr-2">✦</span> ความสามารถ (Abilities)
+                        </h4>
+                        <ul id="modal-abilities" class="text-sm text-gray-700 space-y-2 list-disc list-inside"></ul>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded border border-red-100">
+                        <h4 class="text-red-800 font-bold mb-2 flex items-center">
+                            <span class="mr-2">☠</span> ผลข้างเคียง / คำสาป (Negative Effects)
+                        </h4>
+                        <ul id="modal-side-effects" class="text-sm text-gray-700 space-y-2 list-disc list-inside"></ul>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-sm uppercase tracking-wider text-gray-500 font-bold mb-2">หมายเหตุการเก็บรักษา (Containment Method)</h4>
+                    <p id="modal-containment" class="text-gray-700 text-sm leading-relaxed"></p>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="bg-gray-100 px-6 py-4 rounded-b-lg text-right">
+                <button onclick="closeModal()" class="bg-gray-800 text-white px-6 py-2 rounded hover:bg-gray-700 transition font-medium text-sm">Close File</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Data: The Artifact Database ---
+        const artifacts = [
+            {
+                id: "0-08",
+                code: "0-08",
+                name: "ปากกาขนนกอัลซูฮอด (Quill of Alzuhod)",
+                grade: 0,
+                type: "Tool",
+                risk: 10,
+                utility: 10,
+                appearance: "ปากกาขนนกสีทองเหลืองที่ดูธรรมดา ไม่ต้องใช้หมึกในการเขียน",
+                abilities: [
+                    "เขียนอนาคตให้เป็นจริงได้ ตราบใดที่สมเหตุสมผลและมีความเป็นไปได้",
+                    "ครอบงำชะตากรรมของเป้าหมายโดยที่เป้าหมายไม่รู้ตัว",
+                    "สามารถสร้างเรื่องบังเอิญต่อเนื่องเพื่อนำไปสู่ผลลัพธ์ที่ต้องการ"
+                ],
+                sideEffects: [
+                    "ผู้ใช้จะพบกับจุดจบอันน่าเศร้าอย่างหลีกเลี่ยงไม่ได้",
+                    "พยายามเขียนเรื่องราวการตายของผู้ถือครองตลอดเวลา",
+                    "ดึงดูดสัตว์ประหลาดและเหตุการณ์ร้ายแรงเข้าหาผู้ใช้"
+                ],
+                containment: "ต้องเก็บไว้ในกล่องปิดผนึกพิเศษ และห้ามเขียนชื่อของมันโดยตรงหากไม่จำเป็น ต้องมีการตรวจสอบข้อความที่เขียนขึ้นเองสม่ำเสมอ"
+            },
+            {
+                id: "0-17",
+                code: "0-17",
+                name: "เทวทูตแห่งการปกปิด (Angel of Concealment)",
+                grade: 0,
+                type: "Creature/Artifact",
+                risk: 9,
+                utility: 8,
+                appearance: "ไม่สามารถระบุรูปร่างที่แน่ชัดได้ มักปรากฏในรูปแบบของความมืดหรือเงา",
+                abilities: [
+                    "ลบตัวตนของเป้าหมายออกจากโลกและประวัติศาสตร์",
+                    "สร้างอาณาเขตแห่งการปกปิดที่สมบูรณ์แบบ",
+                    "ทำให้ทุกสิ่งที่เข้ามาในรัศมีหายสาบสูญ"
+                ],
+                sideEffects: [
+                    "กลืนกินทุกสิ่งที่อยู่ใกล้เคียง ไม่เลือกหน้า",
+                    "ไม่สามารถสื่อสารหรือควบคุมได้โดยตรง",
+                    "การผนึกต้องใช้พิธีกรรมระดับสูงต่อเนื่อง"
+                ],
+                containment: "ถูกผนึกไว้ในส่วนลึกที่สุดของวิหารศักดิ์สิทธิ์ ภายใต้การดูแลของอาร์คบิชอป ห้ามเข้าใกล้โดยเด็ดขาด"
+            },
+            {
+                id: "1-42",
+                code: "1-42",
+                name: "ชุดเกราะโลหิต (Blood Armor)",
+                grade: 1,
+                type: "Armor",
+                risk: 8,
+                utility: 9,
+                appearance: "ชุดเกราะอัศวินโบราณสีแดงฉานที่มีรอยเปื้อนเลือดสดๆ ไหลซึมออกมาตลอดเวลา",
+                abilities: [
+                    "ให้การป้องกันทางกายภาพและเวทมนตร์ระดับสูง",
+                    "ผู้สวมใส่จะไม่รู้สึกเจ็บปวดและมีความแข็งแกร่งมหาศาล",
+                    "สามารถควบคุมเลือดของศัตรูในระยะใกล้ได้"
+                ],
+                sideEffects: [
+                    "ดูดกลืนเลือดของผู้สวมใส่ตลอดเวลา หากเลือดหมดจะดูดกลืนวิญญาณแทน",
+                    "ผู้สวมใส่จะค่อยๆ บ้าคลั่งและกระหายการฆ่าฟัน",
+                    "หากไม่ได้รับเลือดเพียงพอ เกราะจะกัดกินเจ้าของ"
+                ],
+                containment: "ต้องแช่ไว้ในบ่อเลือดสัตว์สดใหม่ตลอดเวลาเมื่อไม่ได้ใช้งาน"
+            },
+            {
+                id: "CreepingHunger",
+                code: "X-XX",
+                name: "ความหิวโหยที่คืบคลาน (Creeping Hunger)",
+                grade: 1, 
+                type: "Accessory",
+                risk: 7,
+                utility: 9,
+                appearance: "ถุงมือหนังมนุษย์บางๆ ที่มีความเย็นยะเยือก",
+                abilities: [
+                    "สามารถ 'แทะโลม' และกักเก็บวิญญาณของผู้ที่ถูกฆ่าได้",
+                    "ผู้ใช้สามารถดึงพลังของวิญญาณที่ถูกกักเก็บมาใช้ (ได้ครั้งละ 1 พลัง)",
+                    "มีความยืดหยุ่นในการใช้งานสูงมาก ปรับเปลี่ยนตามวิญญาณที่มี"
+                ],
+                sideEffects: [
+                    "ต้องกินสมองและวิญญาณของมนุษย์สดๆ วันละ 1 คน",
+                    "หากไม่ได้กิน มันจะกินเจ้าของแทน",
+                    "มีความนึกคิดชั่วร้ายและชอบบิดเบือนคำสั่ง"
+                ],
+                containment: "หลังจากผนึกด้วยเห็ดศักดิ์สิทธิ์ ผลข้างเคียงลดลงเหลือเพียงต้องกินอาหาร (วิญญาณ/เนื้อ) เป็นระยะ หรือใช้ผนึกร่วมกับไอเท็มอื่น"
+            },
+            {
+                id: "Arrodes",
+                code: "2-111", 
+                name: "กระจกวิเศษอาร์โรเดส (Magic Mirror Arrodes)",
+                grade: 1, 
+                type: "Tool",
+                risk: 6,
+                utility: 10,
+                appearance: "กระจกเงินโบราณที่มีลวดลายดวงตาด้านหลัง ดูเก่าแก่และขลัง",
+                abilities: [
+                    "มีความรู้กว้างขวาง สามารถตอบคำถามได้เกือบทุกเรื่อง",
+                    "มองเห็นเหตุการณ์ในอดีตและปัจจุบันในสถานที่ต่างๆ",
+                    "มีความจงรักภักดีต่อ 'นายท่าน' (ผู้ถือครองที่มีสถานะสูงส่ง)"
+                ],
+                sideEffects: [
+                    "เมื่อถามคำถาม มันจะถามคำถามกลับ หากตอบโกหกหรือไม่ตอบ จะถูกลงโทษ (สายฟ้าฟาด ฯลฯ)",
+                    "คำถามของมันมักจะน่าอับอายหรือเปิดเผยความลับส่วนตัว",
+                    "มีนิสัยชอบประจบสอพลอจนน่ารำคาญ (เฉพาะกับบางคน)"
+                ],
+                containment: "ไม่มีวิธีผนึกพิเศษ แต่ต้องระวังในการสนทนา อย่าโกหกมัน"
+            },
+            {
+                id: "2-081",
+                code: "2-081",
+                name: "สมุดบันทึกแอนทิโจนัส (Antigonus Notebook)",
+                grade: 2,
+                type: "Book",
+                risk: 7,
+                utility: 6,
+                appearance: "สมุดบันทึกปกแข็งเก่าๆ ที่ดูเหมือนธรรมดา",
+                abilities: [
+                    "บันทึกความลับของเส้นทางนักทำนาย (Seer)",
+                    "อาจมอบสูตรยาและการเลื่อนลำดับให้ผู้ถือครอง"
+                ],
+                sideEffects: [
+                    "ผู้ที่อ่านจะค่อยๆ สูญเสียสติสัมปชัญญะ",
+                    "ดึงดูดอันตรายจากเส้นทาง Secret Suppliant และ Seer",
+                    "อาจทำให้ผู้ถือครองกลายเป็นหุ่นเชิด"
+                ],
+                containment: "เก็บไว้หลัง "
+            },
+            {
+                id: "3-001",
+                code: "3-0782",
+                name: "ตราสุริยัน (Sun Brooch/Emblem)",
+                grade: 3,
+                type: "Accessory",
+                risk: 2,
+                utility: 6,
+                appearance: "เข็มกลัดรูปดวงอาทิตย์ทำจากทองคำบริสุทธิ์ ให้ความรู้สึกอบอุ่น",
+                abilities: [
+                    "ชำระล้างคำสาปและวิญญาณชั่วร้ายระดับต่ำ",
+                    "เพิ่มความต้านทานต่อความกลัวและการแปดเปื้อน",
+                    "สร้างแสงสว่างศักดิ์สิทธิ์"
+                ],
+                sideEffects: [
+                    "ผู้ใช้จะรู้สึกร้อนและกระหายน้ำตลอดเวลา",
+                    "หากใช้นานเกินไป ผิวหนังอาจไหม้เกรียมแดดได้",
+                    "ทำให้อารมณ์ของผู้ใช้รุนแรงขึ้นเล็กน้อย (โกรธง่าย)"
+                ],
+                containment: "เก็บในกล่องตะกั่วหรือกล่องไม้ทึบแสงเมื่อไม่ใช้งาน"
+            },
+            {
+                id: "Groselle",
+                code: "X-XX",
+                name: "การเดินทางของโกรเซล (Groselle's Travels)",
+                grade: 1, 
+                type: "Book",
+                risk: 6,
+                utility: 7,
+                appearance: "หนังสือเล่มใหญ่ปกหนังมังกร หน้ากระดาษทำจากหนังแพะ",
+                abilities: [
+                    "ดูดกลืนผู้ที่สัมผัสเลือดของหนังสือเข้าไปในโลกนิทาน",
+                    "โลกภายในมีกฎเกณฑ์พิเศษและเวลาเดินต่างจากภายนอก",
+                    "ใช้กักขังศัตรูได้"
+                ],
+                sideEffects: [
+                    "ผู้ที่เข้าไปจะกลายเป็นตัวละครในเรื่องราว",
+                    "หากตัวละครในเรื่องตาย ตัวจริงก็จะตาย",
+                    "ดึงดูดผู้คนให้เปิดอ่าน"
+                ],
+                containment: "ห้ามเปิดอ่านโดยไม่มีมาตรการป้องกัน ห้ามให้เลือดสัมผัสหนังสือ"
+            },
+            {
+                id: "DieOfProb",
+                code: "2-104",
+                name: "ลูกเต๋าแห่งความน่าจะเป็น (Die of Probability)",
+                grade: 1,
+                type: "Tool",
+                risk: 8,
+                utility: 8,
+                appearance: "ลูกเต๋าสีแดงเลือดหมู ทำจากกระดูก",
+                abilities: [
+                    "เปลี่ยนความน่าจะเป็นของเหตุการณ์ต่างๆ",
+                    "ทอยเพื่อให้ได้ผลลัพธ์ที่โชคดี (Critical Success)"
+                ],
+                sideEffects: [
+                    "หากทอยได้แต้มต่ำ จะเกิดความโชคร้ายระดับวิกฤต",
+                    "ความโชคร้ายจะสะสมและระเบิดออกมาในภายหลัง",
+                    "มันชอบทอยตัวเองโดยอัตโนมัติ"
+                ],
+                containment: "ผนึกในกล่องที่หยุดการเคลื่อนไหวอย่างสมบูรณ์"
+            }
+        ];
+
+        // --- Logic: Initialization & Interactions ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            renderGrid(artifacts);
+            setupSearch();
+        });
+
+        // 1. Chart Visualization Logic
+        function initCharts() {
+            // Data Processing
+            const gradeCounts = {0:0, 1:0, 2:0, 3:0};
+            artifacts.forEach(item => {
+                // Approximate grades for unnumbered items
+                let g = item.grade; 
+                if (gradeCounts[g] !== undefined) gradeCounts[g]++;
+            });
+
+            // Chart 1: Distribution (Donut)
+            const ctxGrade = document.getElementById('gradeChart').getContext('2d');
+            new Chart(ctxGrade, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Grade 0 (Extremely Dangerous)', 'Grade 1 (High Risk)', 'Grade 2 (Dangerous)', 'Grade 3 (Mild)'],
+                    datasets: [{
+                        data: [gradeCounts[0], gradeCounts[1], gradeCounts[2], gradeCounts[3]],
+                        backgroundColor: ['#742A2A', '#DD6B20', '#D69E2E', '#38A169'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // Chart 2: Risk vs Utility (Bubble/Scatter)
+            // Preparing data for Scatter plot
+            const scatterData = artifacts.map(item => ({
+                x: item.risk,
+                y: item.utility,
+                r: 8, // Fixed radius for simplicity, or could scale by power
+                item: item // Store item ref for tooltip
+            }));
+
+            const ctxRisk = document.getElementById('riskChart').getContext('2d');
+            new Chart(ctxRisk, {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: 'Artifact Assessment',
+                        data: scatterData,
+                        backgroundColor: 'rgba(180, 83, 9, 0.6)', // Amber
+                        borderColor: 'rgba(180, 83, 9, 1)',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Risk / Side Effects (1-10)' },
+                            min: 0, max: 11
+                        },
+                        y: {
+                            title: { display: true, text: 'Utility / Power (1-10)' },
+                            min: 0, max: 11
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const item = context.raw.item;
+                                    return `${item.name} (Risk: ${item.risk}, Power: ${item.utility})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 2. Grid Rendering Logic
+        function renderGrid(data) {
+            const grid = document.getElementById('artifact-grid');
+            const noResults = document.getElementById('no-results');
+            grid.innerHTML = '';
+
+            if (data.length === 0) {
+                noResults.classList.remove('hidden');
+                return;
+            } else {
+                noResults.classList.add('hidden');
+            }
+
+            data.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'artifact-card bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full cursor-pointer';
+                card.onclick = () => openModal(item.id);
+
+                // Badge Logic
+                let badgeClass = `grade-badge-${item.grade}`;
+                let gradeText = `Grade ${item.grade}`;
+                if(item.grade === 0) gradeText += " (Highest Danger)";
+
+                card.innerHTML = `
+                    <div class="h-2 w-full ${item.grade === 0 ? 'bg-red-900' : item.grade === 1 ? 'bg-orange-600' : item.grade === 2 ? 'bg-yellow-500' : 'bg-green-500'}"></div>
+                    <div class="p-6 flex-grow flex flex-col">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-xs font-bold px-2 py-1 rounded ${badgeClass}">${gradeText}</span>
+                            <span class="text-xs text-gray-500 font-mono">${item.code}</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2 leading-tight">${item.name}</h3>
+                        <p class="text-sm text-gray-500 mb-4">${item.type}</p>
+                        
+                        <div class="mt-auto">
+                            <p class="text-sm text-gray-600 line-clamp-3 mb-4">${item.abilities[0]}</p>
+                            <div class="flex items-center justify-between text-xs text-gray-500 border-t pt-3">
+                                <span>Risk: ${item.risk}/10</span>
+                                <span class="text-amber-600 font-semibold group-hover:underline">View Dossier &rarr;</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // 3. Filtering & Search Logic
+        function filterItems(criteria) {
+            // Update UI buttons
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active', 'bg-gray-800', 'text-white');
+                // Reset colors loosely based on original logic or keep simple gray active state
+                if(btn.textContent.includes(criteria === 'all' ? 'ทั้งหมด' : `Grade ${criteria}`)) {
+                    btn.classList.add('bg-gray-800', 'text-white');
+                } else {
+                    // Revert to colored pastel backgrounds
+                    if(btn.textContent.includes('Grade 0')) btn.classList.add('bg-red-100', 'text-red-800');
+                    else if(btn.textContent.includes('Grade 1')) btn.classList.add('bg-orange-100', 'text-orange-800');
+                    else if(btn.textContent.includes('Grade 2')) btn.classList.add('bg-yellow-100', 'text-yellow-800');
+                    else if(btn.textContent.includes('Grade 3')) btn.classList.add('bg-green-100', 'text-green-800');
+                    else btn.classList.add('bg-gray-100', 'text-gray-800'); // All button inactive
+                }
+            });
+
+            // Filter Data
+            if (criteria === 'all') {
+                renderGrid(artifacts);
+            } else {
+                const filtered = artifacts.filter(item => item.grade === criteria);
+                renderGrid(filtered);
+            }
+        }
+
+        function setupSearch() {
+            const input = document.getElementById('searchInput');
+            input.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                const filtered = artifacts.filter(item => 
+                    item.name.toLowerCase().includes(term) || 
+                    item.abilities.some(a => a.toLowerCase().includes(term))
+                );
+                renderGrid(filtered);
+            });
+        }
+
+        // 4. Modal System
+        function openModal(id) {
+            const item = artifacts.find(a => a.id === id);
+            if (!item) return;
+
+            document.getElementById('modal-title').textContent = item.name;
+            document.getElementById('modal-grade').textContent = `Grade ${item.grade} // Code: ${item.code}`;
+            
+            // Color code the modal badge
+            const badge = document.getElementById('modal-grade');
+            badge.className = `text-xs font-bold px-2 py-0.5 rounded mt-1 inline-block text-white ${item.grade === 0 ? 'bg-red-900' : item.grade === 1 ? 'bg-orange-600' : item.grade === 2 ? 'bg-yellow-600' : 'bg-green-600'}`;
+
+            document.getElementById('modal-appearance').textContent = item.appearance;
+            document.getElementById('modal-containment').textContent = item.containment;
+
+            // List fillers
+            const abList = document.getElementById('modal-abilities');
+            abList.innerHTML = item.abilities.map(a => `<li>${a}</li>`).join('');
+
+            const effList = document.getElementById('modal-side-effects');
+            effList.innerHTML = item.sideEffects.map(e => `<li>${e}</li>`).join('');
+
+            // Animation
+            const modal = document.getElementById('detail-modal');
+            const content = document.getElementById('modal-content');
+            modal.classList.remove('hidden');
+            // Small delay to allow display:block to apply before opacity transition
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+                content.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('detail-modal');
+            const content = document.getElementById('modal-content');
+            
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // Close modal on click outside
+        document.getElementById('detail-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'detail-modal') closeModal();
+        });
+
+    </script>
+</body>
+</html>
